@@ -2,8 +2,9 @@
 from transaction import Transaction
 from network import BHNRequest, PageParser
 
-class VisaGiftCard(object):
-    """Visa Gift Card
+class VisaGiftCard:
+    """
+    Visa Gift Card
 
     Attributes
     ----------
@@ -23,7 +24,6 @@ class VisaGiftCard(object):
     * availableBalance(float)
     * cashback(float)
     * override(float)
-
     """
 
     def __init__(self, cardNumber, expirationMonth, expirationYear, cvv, postal):
@@ -39,51 +39,55 @@ class VisaGiftCard(object):
         self.reset()
 
     @classmethod
-    def fromRow(self, row):
+    def fromRow(cls, row):
         if len(row) != 6:
             return None
         cardNumber, month, year, cvv, postal, note = row
-        return VisaGiftCard(cardNumber, month, year, cvv, postal)
+        return cls(cardNumber, month, year, cvv, postal)
 
     def reset(self):
         """Reset all attributes getting from network"""
-        self._initialBalance = self._availableBalance = self._cashback = self._override = 0.0
+        self._initialBalance = 0.0
+        self._availableBalance = 0.0
+        self._cashback = 0.0
+        self._override = 0.0
 
     def __str__(self):
-        return 'Card {} {}/{} cvv:{} {}/{}'.format(self.lastFour, self.expMonth, self.expYear, self.cvv, self.availableBalance, self.initialBalance)
+        return f'Card {self.lastFour} {self.expMonth}/{self.expYear} cvv:{self.cvv} {self.availableBalance}/{self.initialBalance}'
 
     def validation(self):
-
-        if not len(self.cardNumber) == 16:
+        if len(self.cardNumber) != 16:
             self.errorMessage = 'invalid card number'
             return False
-        if not '4' in self.cardNumber[0]:
+
+        if self.cardNumber[0] != '4':
             self.errorMessage = 'not a VISA gift card'
             return False
 
         if len(self.expMonth) == 1:
             self.expMonth = '0' + self.expMonth
-        if not (int(self.expMonth) > 0 and int(self.expMonth) < 13):
-            self.errorMessage = 'invalid month {}'.format(self.expMonth)
+
+        if not (1 <= int(self.expMonth) <= 12):
+            self.errorMessage = f'invalid month {self.expMonth}'
             return False
 
-        if not (int(self.expYear) > 15 and int(self.expYear) < 100):
-            self.errorMessage = 'invalid year {}'.format(self.expYear)
+        if not (15 < int(self.expYear) < 100):
+            self.errorMessage = f'invalid year {self.expYear}'
             return False
 
-        if not (int(self.cvv) > -1 and int(self.cvv) < 1000):
-            self.errorMessage = 'invalid cvv {}'.format(self.cvv)
+        if not (0 <= int(self.cvv) < 1000):
+            self.errorMessage = f'invalid cvv {self.cvv}'
             return False
 
         self.postal = self.postal or '00000'
-        if not len(self.postal) == 5:
-            self.errorMessage = 'invalid postal {}'.format(self.postal)
+        if len(self.postal) != 5:
+            self.errorMessage = f'invalid postal {self.postal}'
             return False
 
         return True
 
     def getBalanceAndTransactions(self):
-        """Get balace through HTTP request. Return a bool represent request successful or not"""
+        """Get balance through HTTP request. Return a bool representing request success or failure."""
         if not self.valid:
             return False
         self.reset()
@@ -122,11 +126,11 @@ class VisaGiftCard(object):
         responseStr = BHNRequest(BHNRequest.TypeSetPin, self.cardInfo, None, pinCode).send()
         return 'Your card PIN has been set!' in responseStr
 
-    # Read only properties
+    # Read-only properties
 
     @property
     def lastFour(self):
-        """Return last four digit of card number."""
+        """Return last four digits of card number."""
         return self.cardNumber[-4:]
 
     @property
@@ -137,7 +141,7 @@ class VisaGiftCard(object):
             'ExpirationMonth': self.expMonth,
             'ExpirationYear': self.expYear,
             'SecurityCode': self.cvv
-            }
+        }
         if self.postal != '00000':
             json['PostalCode'] = self.postal
         return json
@@ -154,10 +158,10 @@ class VisaGiftCard(object):
 
     @property
     def cashback(self):
-        """Return available card balance"""
+        """Return total cashback amount"""
         return self._cashback
 
     @property
     def override(self):
-        """Return available card balance"""
+        """Return total override amount"""
         return self._override
