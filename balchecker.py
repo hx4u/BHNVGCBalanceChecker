@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import csv
 from utils import VisaGiftCard
@@ -9,29 +9,31 @@ sampleFileName = 'cards.sample.csv'
 if __name__ == "__main__":
     # execute only if run as a script
     try:
-        f = open(fileName, 'r')
+        f = open(fileName, 'r', newline='', encoding='utf-8')
     except (OSError, IOError) as error:
-        print '"{}" is not found.\nPlease make a copy from "{}"'.format(fileName, sampleFileName)
+        print('"{}" is not found.\nPlease make a copy from "{}"'.format(fileName, sampleFileName))
         exit()
 
     titles = ['Last 4', 'Available', 'Initial', 'Cashback', 'Override']
     separator = '  '
     header = separator.join(titles)
-    print header
-    print '=' * len(header)
+    print(header)
+    print('=' * len(header))
 
     for row in csv.reader(f):
-        if row[0] == 'Card Number': # CSV Header
+        if row[0] == 'Card Number':  # CSV Header
             continue
         vgc = VisaGiftCard.fromRow(row)
         vgc.getBalanceAndTransactions()
-        formatStr = lambda x: '{:>%i}' % len(x) # Take a string and return right align format '{:>x}' where x is the length of the input
+
+        formatStr = lambda x: '{:>%i}' % len(x)  # Right-align by length of the input string
         formatFloat = lambda x: '{:>%i.2f}' % len(x)
+
         if vgc.valid:
-            indentFormat = formatStr(titles[0]) + separator + separator.join(map(formatFloat, titles[1:])) # '{:>6}  {:>9}  {:>7}  {:>8}  {:>8}'
-            print indentFormat.format(vgc.lastFour, vgc.availableBalance, vgc.initialBalance, vgc.cashback, vgc.override)
+            indentFormat = formatStr(titles[0]) + separator + separator.join(map(formatFloat, titles[1:]))
+            print(indentFormat.format(vgc.lastFour, vgc.availableBalance, vgc.initialBalance, vgc.cashback, vgc.override))
         else:
             indentFormat = formatStr(titles[0]) + separator + formatStr(separator.join(titles[1:]))
-            print indentFormat.format(vgc.lastFour, 'ERROR: ' + vgc.errorMessage)
+            print(indentFormat.format(vgc.lastFour, 'ERROR: ' + vgc.errorMessage))
 
     f.close()
