@@ -1,19 +1,17 @@
-
-from HTMLParser import HTMLParser
+from html.parser import HTMLParser  # Python 3 compatible
 import requests
 import re
 from transaction import Transaction
 
 DEBUG = False
 
-class BHNRequest(object):
+class BHNRequest:
     """BHNRequest
 
     Attributes
     ----------
     *requestType(int): `BHNRequest.TypeBalance`, `BHNRequest.TypeRegister` or `BHNRequest.TypeSetPin`
     *data(dict): JSON dictionary for POST request
-
     """
 
     DOMAIN = 'https://mygift.giftcardmall.com/'
@@ -23,9 +21,9 @@ class BHNRequest(object):
     TypeBalance, TypeRegistation, TypeSetPin = range(0, 3)
 
     URLS = {
-        TypeBalance : 'Card/_Login?returnUrl=Transactions',
+        TypeBalance: 'Card/_Login?returnUrl=Transactions',
         TypeRegistation: ['Card/_Login?returnUrl=Registration', 'Account/_Profile/form-complete-reg?name=complete-reg'],
-        TypeSetPin : ['Card/_Login?returnUrl=SetPin', 'Card/_SetPin/setpin-form']
+        TypeSetPin: ['Card/_Login?returnUrl=SetPin', 'Card/_SetPin/setpin-form']
     }
 
     def __init__(self, requestType, cardInfo, contactInfo=None, pin=None):
@@ -47,8 +45,7 @@ class BHNRequest(object):
             session = requests.Session()
             response = session.post(url, headers=BHNRequest.HEADER, data=self.cardInfo, verify=not DEBUG)
             if response.url == url:
-                # Redirect to the same url. This means registration failure. Maybe wrong card info or this card is already registered.
-                return ''
+                return ''  # Registration failed
 
             if self.requestType == BHNRequest.TypeRegistation:
                 data = self.contactInfo
@@ -65,10 +62,11 @@ class BHNRequest(object):
 
         return response.text
 
+
 class PageParser(HTMLParser):
 
     def __init__(self):
-        HTMLParser.__init__(self)
+        super().__init__()
         self.availableBalance = None
         self.initialBalance = None
         self.transactions = []
@@ -81,22 +79,23 @@ class PageParser(HTMLParser):
     def handle_starttag(self, tag, attrs):
         self.currentTag = tag
         self.currentClass = None
-        if len(attrs) > 0:
+        if attrs:
             attrDict = dict(attrs)
-            if attrDict.has_key('class'):
+            if 'class' in attrDict:
                 self.currentClass = attrDict['class']
                 if self.currentClass == 'panel-heading':
                     self.transaction = Transaction()
                 elif self.currentClass == 'panel-collapse collapse':
-                    # Log Transaction
                     self.transactions.append(self.transaction)
                     self.transaction = None
 
     def handle_data(self, data):
-        content = data.strip() # Remove all white spaces and new line chars from data
+        content = data.strip()
         if content == '':
             return
+
         moneyStrToFloat = lambda x: float(x.replace('$', ''))
+
         if self.currentTag == 'div':
             if self.currentClass == 'name':
                 self.currentName = content
@@ -106,7 +105,7 @@ class PageParser(HTMLParser):
                 elif self.currentName == 'Initial Balance':
                     self.initialBalance = moneyStrToFloat(content)
                 self.currentName = None
-            elif self.currentClass.startswith('col-xs-5ths transaction-'):
+            elif self.currentClass and self.currentClass.startswith('col-xs-5ths transaction-'):
                 key = self.currentClass.split('-')[-1]
                 if key == 'type':
                     self.transaction.typeStr = content
