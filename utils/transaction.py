@@ -1,4 +1,4 @@
-class Transaction(object):
+class Transaction:
     """Transaction
 
     Attributes
@@ -7,10 +7,10 @@ class Transaction(object):
     * typeStr(str)
     * description(str)
     * amount(float)
-
     """
+
     # Transaction Type Enum
-    TypeRegular, TypeCashback, TypeOverride = range(0, 3)
+    TypeRegular, TypeCashback, TypeOverride = range(3)
     TypeName = ['Regular', 'Cashback', 'Override']
 
     def __init__(self, dateStr=None, typeStr=None, description='', amount=0.0):
@@ -20,7 +20,12 @@ class Transaction(object):
         self.amount = amount
 
     def __str__(self):
-        return 'Transaction date:{} type:{} amount:${:,.2f} description:{}'.format(self.dateStr, self.TypeName[self.transactionType], self.amount, self.description)
+        return 'Transaction date:{} type:{} amount:${:,.2f} description:{}'.format(
+            self.dateStr,
+            self.TypeName[self.transactionType],
+            self.amount,
+            self.description
+        )
 
     @property
     def transactionType(self):
