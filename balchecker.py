@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
+import argparse
 import csv
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from utils import VisaGiftCard
+import os
 import signal
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from utils import VisaGiftCard
+from time import sleep
 
 fileName = 'cards.csv'
 sampleFileName = 'cards.sample.csv'
@@ -31,18 +34,49 @@ def write_output(valid_cards):
         writer.writerow(['Last 4', 'Available', 'Initial', 'Cashback', 'Override'])
         writer.writerows(valid_cards)
 
-def signal_handler(sig, frame):
+def signal_handler(sig, frame, executor):
     """Handle graceful shutdown on Ctrl+C."""
     print("\nInterrupt received. Cancelling all threads...")
+    executor.shutdown(wait=True)  # Gracefully shut down threads
     sys.exit(0)  # Exit the program
 
+def parse_args():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="Process a CSV of Visa gift cards, retrieve balances, and write valid cards to an output file.")
+    
+    # Optional arguments
+    parser.add_argument('-i', '--input', default=fileName, help=f"Input CSV file (default: {fileName})")
+    parser.add_argument('-o', '--output', default=outputFileName, help=f"Output CSV file for valid cards (default: {outputFileName})")
+    parser.add_argument('--sample', action='store_true', help="Print sample file info and exit")
+    parser.add_argument('--threads', type=int, default=os.cpu_count(), help=f"Number of threads to use (default: {os.cpu_count()})")
+
+    return parser.parse_args()
+
+def show_loading_message():
+    """Display a loading message while processing the file."""
+    print("Loading cards.csv...")
+    for _ in range(3):  # Display a simple loading animation
+        print(".", end="", flush=True)
+        sleep(0.5)
+    print("\n")
+
 if __name__ == "__main__":
+    # Parse command-line arguments
+    args = parse_args()
+
+    if args.sample:
+        print(f"Sample file should be named: {sampleFileName}")
+        exit()
+
     # Register the signal handler to catch Ctrl+C (KeyboardInterrupt)
-    signal.signal(signal.SIGINT, signal_handler)
+    executor = ThreadPoolExecutor(max_workers=args.threads)
+    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, executor))
 
     # Execute only if run as a script
     try:
-        with open(fileName, 'r', newline='', encoding='utf-8') as f:
+        with open(args.input, 'r', newline='', encoding='utf-8') as f:
+            show_loading_message()  # Show loading message while reading the file
+
             reader = csv.reader(f)
             next(reader)  # Skip the header
 
@@ -54,19 +88,17 @@ if __name__ == "__main__":
 
             valid_cards = []
 
-            # Use ThreadPoolExecutor to process the cards concurrently
-            with ThreadPoolExecutor() as executor:
-                # Start processing the rows asynchronously
-                future_to_row = {executor.submit(process_card, row): row for row in reader}
+            # Use ThreadPoolExecutor to process the cards concurrently with the specified thread count
+            future_to_row = {executor.submit(process_card, row): row for row in reader}
 
-                # Collect results as they are completed
-                for future in as_completed(future_to_row):
-                    try:
-                        result = future.result()
-                        valid_cards.append(result)
+            # Collect results as they are completed
+            for future in as_completed(future_to_row):
+                try:
+                    result = future.result()
+                    valid_cards.append(result)
 
-                    except Exception as e:
-                        print(f"Error processing card: {e}")
+                except Exception as e:
+                    print(f"Error processing card: {e}")
 
             # Print valid cards to console
             for card in valid_cards:
@@ -75,6 +107,9 @@ if __name__ == "__main__":
             # Write valid cards to the output file
             write_output(valid_cards)
 
+            # Gracefully shutdown the executor after finishing processing
+            executor.shutdown(wait=True)
+
     except (OSError, IOError):
-        print(f'"{fileName}" is not found.\nPlease make a copy from "{sampleFileName}".')
+        print(f'"{args.input}" is not found.\nPlease make a copy from "{sampleFileName}".')
         exit()
